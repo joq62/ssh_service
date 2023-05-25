@@ -19,7 +19,7 @@
 
 %% API
 -export([
-
+	 send_msg/6
 	 ]).
 
 -export([
@@ -42,6 +42,14 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
+%%--------------------------------------------------------------------
+%% @doc
+%% @spec
+%% @end
+%%--------------------------------------------------------------------
+send_msg(Ip,Port,User,Password,Msg,TimeOut)->
+    gen_server:call(?SERVER, {send_msg,Ip,Port,User,Password,Msg,TimeOut},infinity).
+    
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -81,7 +89,8 @@ stop()-> gen_server:call(?SERVER, {stop},infinity).
 	  ignore.
 
 init([]) ->
-    ?LOG_NOTICE("Server started ",[]),       
+    ?LOG_NOTICE("Server started ",[]),     
+    ssh:start(),
     {ok, #state{}}.
 
 %%--------------------------------------------------------------------
@@ -89,8 +98,8 @@ init([]) ->
 %% @spec
 %% @end
 %%--------------------------------------------------------------------
-handle_call({delete_provider,ProviderSpec,HostSpec}, _From, State) ->
-    Reply=lib_provider:delete(ProviderSpec,HostSpec),
+handle_call({send_msg,Ip,Port,User,Password,Msg,TimeOut}, _From, State) ->
+    Reply=lib_ssh:send(Ip,Port,User,Password,Msg,TimeOut),
     {reply, Reply, State};
 
 %%--------------------------------------------------------------------

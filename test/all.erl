@@ -16,7 +16,7 @@
 %% Include files
 %% --------------------------------------------------------------------
 
-
+-define(C200,{"192.168.1.200",22,"ubuntu","festum01"}).
 %% --------------------------------------------------------------------
 %% Function: available_hosts()
 %% Description: Based on hosts.config file checks which hosts are avaible
@@ -25,6 +25,7 @@
 start()->
    
     ok=setup(),
+    ok=test1(),
      
     io:format("Test OK !!! ~p~n",[?MODULE]),
     timer:sleep(2000),
@@ -36,7 +37,14 @@ start()->
 %% Description: Based on hosts.config file checks which hosts are avaible
 %% Returns: List({HostId,Ip,SshPort,Uid,Pwd}
 %% --------------------------------------------------------------------
-
+test1()->
+    io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME}]),
+    {Ip,Port,Uid,Pwd}=?C200,
+    TimeOut=5000,
+    Msg_1="pwd",
+    kuk=ssh_server:send_msg(Ip,Port,Uid,Pwd,Msg_1,TimeOut),
+    
+    ok.
 %% --------------------------------------------------------------------
 %% Function: available_hosts()
 %% Description: Based on hosts.config file checks which hosts are avaible
