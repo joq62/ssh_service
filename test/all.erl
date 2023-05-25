@@ -41,8 +41,12 @@ test1()->
     io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME}]),
     {Ip,Port,Uid,Pwd}=?C200,
     TimeOut=5000,
-    Msg_1="pwd",
-    kuk=ssh_server:send_msg(Ip,Port,Uid,Pwd,Msg_1,TimeOut),
+    {ok,["/home/ubuntu"]}=ssh_server:send_msg(Ip,Port,Uid,Pwd,"pwd",TimeOut),
+    {ok,["/home/ubuntu"]}=ssh_server:send_msg(Ip,Port,Uid,Pwd,"pwd",TimeOut),
+    {error,["bash: glurk: command not found"]}=ssh_server:send_msg(Ip,Port,Uid,Pwd,"glurk",TimeOut),
+    {error,["rm: cannot remove 'glurk'"]}=ssh_server:send_msg(Ip,Port,Uid,Pwd,"rm -r glurk",TimeOut),
+
+     {error,["Database not available ",dbetcd_appl]}=ssh_server:send_msg("c200","pwd",TimeOut),
     
     ok.
 %% --------------------------------------------------------------------

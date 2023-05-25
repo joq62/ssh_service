@@ -24,7 +24,7 @@ send(Ip,Port,User,Password,Msg,TimeOut)->
 		  ssh_connection:exec(ConRef,ChanId,Msg,TimeOut),
 		  SessionResult=receive
 			      {ssh_cm, ConRef, {data, ChanId, Type, Result}}->
-				  {ok,{data, ChanId, Type, Result}};
+				  {data, ChanId, Type, Result};
 			      Err2 ->
 				  {error,[Err2,?MODULE,?FUNCTION_NAME,?LINE]}
 			  after TimeOut->

@@ -19,6 +19,7 @@
 
 %% API
 -export([
+	 send_msg/3,
 	 send_msg/6
 	 ]).
 
@@ -35,7 +36,7 @@
 	 terminate/2, code_change/3, format_status/2]).
 
 -define(SERVER, ?MODULE).
--define(LockId,?MODULE).
+-define(DBETCD,dbetcd_appl).
 
 -record(state, {}).
 
@@ -47,6 +48,9 @@
 %% @spec
 %% @end
 %%--------------------------------------------------------------------
+send_msg(HostSpec,Msg,TimeOut)->
+    gen_server:call(?SERVER, {send_msg,HostSpec,Msg,TimeOut},infinity).
+
 send_msg(Ip,Port,User,Password,Msg,TimeOut)->
     gen_server:call(?SERVER, {send_msg,Ip,Port,User,Password,Msg,TimeOut},infinity).
     
@@ -98,8 +102,44 @@ init([]) ->
 %% @spec
 %% @end
 %%--------------------------------------------------------------------
-handle_call({send_msg,Ip,Port,User,Password,Msg,TimeOut}, _From, State) ->
-    Reply=lib_ssh:send(Ip,Port,User,Password,Msg,TimeOut),
+handle_call({send_msg,HostSpec,Msg,TimeOut}, _From, State) ->
+    Reply=case sd:get_node(?DBETCD) of
+	      []->
+		  {error,["Database not available ",?DBETCD]};
+	      _->
+		  {ok,Ip}=sd:call(?DBETCD,db_host_spec,read,[local_ip,HostSpec],5000),
+		  {ok,Port}=sd:call(?DBETCD,db_host_spec,read,[ssh_port,HostSpec],5000),
+		  {ok,Uid}=sd:call(?DBETCD,db_host_spec,read,[uid,HostSpec],5000),
+		  {ok,Pwd}=sd:call(?DBETCD,db_host_spec,read,[passwd,HostSpec],5000),
+		  case lib_ssh:send(Ip,Port,Uid,Pwd,Msg,TimeOut) of
+		      {data, ChanId, Type, Result} when Type == 0 ->
+			  X1=binary_to_list(Result),
+			  Parsed=string:tokens(X1,"\n"),
+			  {ok,Parsed};
+		      {data, ChanId, Type, Result} when Type == 1 ->
+			  X1=binary_to_list(Result),
+			  Parsed=string:tokens(X1,"\n"),
+			  {error,Parsed};
+		      Result->
+			  {error,Result}
+		  end
+	  end,
+    {reply, Reply, State};
+
+handle_call({send_msg,Ip,Port,Uid,Pwd,Msg,TimeOut}, _From, State) ->
+    Reply=case lib_ssh:send(Ip,Port,Uid,Pwd,Msg,TimeOut) of
+	      {data, ChanId, Type, Result} when Type == 0 ->
+		  X1=binary_to_list(Result),
+		  Parsed=string:tokens(X1,"\n"),
+		  {ok,Parsed};
+	      {data, ChanId, Type, Result} when Type == 1 ->
+		  X1=binary_to_list(Result),
+		  Parsed=string:tokens(X1,"\n"),
+		  {error,Parsed};
+	      Result->
+		  {error,Result}
+	  end,
+	      
     {reply, Reply, State};
 
 %%--------------------------------------------------------------------
@@ -139,6 +179,10 @@ handle_cast(UnMatchedSignal, State) ->
 	  {noreply, NewState :: term(), Timeout :: timeout()} |
 	  {noreply, NewState :: term(), hibernate} |
 	  {stop, Reason :: normal | term(), NewState :: term()}.
+
+handle_info({ssh_cm,_,_}, State) ->
+    % consume ssh controller signals
+    {noreply, State};
 
 handle_info(Info, State) ->
     io:format("unmatched_signal ~p~n",[{Info,?MODULE,?LINE}]),
