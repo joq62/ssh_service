@@ -50,6 +50,7 @@ ssh_connect(Ip,Port,User,Password,TimeOut)->
 
 rec(_ConRef,_ChanId,Result,exit,_TimeOut)->
     lists:reverse(Result);
+%[{error,[["rm: cannot remove 'glurk'"],lib_ssh,rec,68]},{error,[[": No such file or directory"],lib_ssh,rec,68]}]
 
 rec(ConRef,ChanId,Result,State,TimeOut)->
   %  io:format("Result,State ~p~n",[{Result,State,?MODULE,?FUNCTION_NAME,?LINE}]),
