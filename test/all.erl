@@ -26,14 +26,30 @@
 start()->
    
     ok=setup(),
-   % ok=test1(),
-    ok=load_start(),
+    ok=test0(),
+
+  % ok=test1(),
+  %  ok=load_start(),
      
     io:format("Test OK !!! ~p~n",[?MODULE]),
     timer:sleep(2000),
     init:stop(),
     ok.
+%%--------------------------------------------------------------------
+%% @doc
+%% @spec
+%% @end
+%%--------------------------------------------------------------------
+test0()->
+    io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME,?LINE}]),
+    {Ip,Port,Uid,Pwd}=?C200,
+    TimeOut=5000,
+ %   {ok,["/home/ubuntu"]}=ssh_server:send_msg(Ip,Port,Uid,Pwd,"pwd",TimeOut),
+    {error,[["rm: cannot remove 'glurk'"],lib_ssh,send,_]}=ssh_server:send_msg(Ip,Port,Uid,Pwd,"rm -r glurk",TimeOut),
 
+    kuk=ssh_server:send_msg(Ip,Port,Uid,Pwd,"mkdir  glurk",TimeOut),
+
+    ok.
 
 %%--------------------------------------------------------------------
 %% @doc

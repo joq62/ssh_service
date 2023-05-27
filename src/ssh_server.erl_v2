@@ -111,12 +111,35 @@ handle_call({send_msg,HostSpec,Msg,TimeOut}, _From, State) ->
 		  {ok,Port}=sd:call(?DBETCD,db_host_spec,read,[ssh_port,HostSpec],5000),
 		  {ok,Uid}=sd:call(?DBETCD,db_host_spec,read,[uid,HostSpec],5000),
 		  {ok,Pwd}=sd:call(?DBETCD,db_host_spec,read,[passwd,HostSpec],5000),
-		  lib_ssh:send(Ip,Port,Uid,Pwd,Msg,TimeOut)
+		  case lib_ssh:send(Ip,Port,Uid,Pwd,Msg,TimeOut) of
+		      {data, ChanId, Type, Result} when Type == 0 ->
+			  X1=binary_to_list(Result),
+			  Parsed=string:tokens(X1,"\n"),
+			  {ok,Parsed};
+		      {data, ChanId, Type, Result} when Type == 1 ->
+			  X1=binary_to_list(Result),
+			  Parsed=string:tokens(X1,"\n"),
+			  {error,Parsed};
+		      Result->
+			  {error,Result}
+		  end
 	  end,
     {reply, Reply, State};
 
 handle_call({send_msg,Ip,Port,Uid,Pwd,Msg,TimeOut}, _From, State) ->
-    Reply=lib_ssh:send(Ip,Port,Uid,Pwd,Msg,TimeOut),	      
+    Reply=case lib_ssh:send(Ip,Port,Uid,Pwd,Msg,TimeOut) of
+	      {data, ChanId, Type, Result} when Type == 0 ->
+		  X1=binary_to_list(Result),
+		  Parsed=string:tokens(X1,"\n"),
+		  {ok,Parsed};
+	      {data, ChanId, Type, Result} when Type == 1 ->
+		  X1=binary_to_list(Result),
+		  Parsed=string:tokens(X1,"\n"),
+		  {error,Parsed};
+	      Result->
+		  {error,Result}
+	  end,
+	      
     {reply, Reply, State};
 
 %%--------------------------------------------------------------------
