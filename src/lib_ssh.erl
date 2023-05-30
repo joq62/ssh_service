@@ -14,7 +14,10 @@
 -define(DELAY,2000).
 % io:format("Reply ~p~n",[{Reply,?MODULE,?FUNCTION_NAME,?LINE}]),
 
-
+% Results:
+% {ok,[]} -> successful linux command returned status zero and no info
+% {ok,Term} -> successful linux command returned status zero and info Term
+%% {error,Reason} -> failed linux comman returned status 1 and error message Reason
 
 send(Ip,Port,User,Password,Msg,TimeOut)->
     Reply=case ssh_connect(Ip,Port,User,Password,TimeOut) of
@@ -22,7 +25,10 @@ send(Ip,Port,User,Password,Msg,TimeOut)->
 		  {error,[Err,?MODULE,?FUNCTION_NAME,?LINE]};
 	      {ok,ConRef,ChanId}->
 		  ssh_connection:exec(ConRef,ChanId,Msg,TimeOut),
-		  SessionResult=rec(ConRef,ChanId,[],start,TimeOut),
+		  Result=undefined,
+		  Data=[],
+		  Closed=false,
+		  SessionResult=rec(ConRef,ChanId,Result,Data,Closed,TimeOut),
 		  ssh:close(ConRef),
 		  SessionResult;
 	      Reason ->
@@ -48,47 +54,69 @@ ssh_connect(Ip,Port,User,Password,TimeOut)->
 	   end,
     Result.
 
-rec(_ConRef,_ChanId,Result,exit,_TimeOut)->
-    lists:reverse(Result);
+rec(_ConRef,_ChanId,Result,Data,true,_TimeOut)->
+    {Result,Data};
 %[{error,[["rm: cannot remove 'glurk'"],lib_ssh,rec,68]},{error,[[": No such file or directory"],lib_ssh,rec,68]}]
 
-rec(ConRef,ChanId,Result,State,TimeOut)->
-  %  io:format("Result,State ~p~n",[{Result,State,?MODULE,?FUNCTION_NAME,?LINE}]),
+rec(ConRef,ChanId,Result,Data,Closed,TimeOut)->
+%% Assumption either data is ok or error. Data can be sent in number of frames till eof is present
     receive
-	{ssh_cm, ConRef, {data, ChanId, Type, Data}} when Type == 0 ->
-	    NextState=eof,
-	    X1=binary_to_list(Data),
+	{ssh_cm, ConRef, {data, ChanId, Type, RecData}} when Type == 0 ->
+	    NewClosed=false,
+	    X1=binary_to_list(RecData),
 	    ParsedData=string:tokens(X1,"\n"),
-	    io:format("NewResult,NextState ~p~n",[{[{ok,ParsedData}|Result],NextState,?MODULE,?FUNCTION_NAME,?LINE}]),
-	    NewResult=[{ok,ParsedData}|Result];
-	{ssh_cm, ConRef, {data, ChanId, Type, Data}} when Type == 1 ->
-	    NextState=eof,
-	    X1=binary_to_list(Data),
+	    NewResult=ok,
+	    NewData=[ParsedData|Data],
+%	    io:format("OK: NewResult,NewData,Closed ~p~n",[{NewResult,NewData,Closed,?MODULE,?FUNCTION_NAME,?LINE}]),
+	    ok;
+	{ssh_cm, ConRef, {data, ChanId, Type, RecData}} when Type == 1 ->
+	    %io:format("Error: RecData ~p~n",[{RecData,?MODULE,?FUNCTION_NAME,?LINE}]),
+	    NewClosed=false,
+	    X1=binary_to_list(RecData),
+	    %io:format("Error: X1 ~p~n",[{X1,?MODULE,?FUNCTION_NAME,?LINE}]),
 	    ParsedData=string:tokens(X1,"\n"),
-	    io:format("NewResult,NextState ~p~n",[{[{error,[ParsedData,?MODULE,?FUNCTION_NAME,?LINE]}|Result],NextState,?MODULE,?FUNCTION_NAME,?LINE}]),
-	    NewResult=[{error,[ParsedData,?MODULE,?FUNCTION_NAME,?LINE]}|Result];
+	    NewResult=error,
+	    NewData=[ParsedData|Data],
+	    %io:format("Error: NewResult,NewData,Closed ~p~n",[{NewResult,NewData,Closed,?MODULE,?FUNCTION_NAME,?LINE}]),
+	    ok;	  
 	{ssh_cm,ConRef,{eof,0}} ->
-	    NextState=exit_status,
-	    io:format("Result,NextState ~p~n",[{Result,NextState,?MODULE,?FUNCTION_NAME,?LINE}]),
-	    NewResult=Result;
+	    if 
+		Result == undefined->
+		    NewResult=ok;
+	       true->
+		    NewResult=Result
+	    end,
+	    NewClosed=false,
+	    NewData=Data,
+	    %io:format("{eof,0} NewResult,NewData,Closed ~p~n",[{NewResult,NewData,Closed,?MODULE,?FUNCTION_NAME,?LINE}]),
+	    ok;
 	{ssh_cm,ConRef,{exit_status,0,0}} ->
-	    NextState=closed,
-	    io:format("Result,NextState ~p~n",[{Result,NextState,?MODULE,?FUNCTION_NAME,?LINE}]),
-	    NewResult=Result;
+	    NewClosed=false,
+	    NewResult=Result,
+	    NewData=Data,
+	     %io:format("{exit_status,0,0}: NewResult,NewData,Closed ~p~n",[{NewResult,NewData,Closed,?MODULE,?FUNCTION_NAME,?LINE}]),
+	    ok;
 	{ssh_cm,ConRef,{exit_status,0,1}} ->
-	    NextState=closed,
-	    io:format("Result,NextState ~p~n",[{Result,NextState,?MODULE,?FUNCTION_NAME,?LINE}]),
-	    NewResult=Result;
+	    NewClosed=false,
+	    NewResult=Result,
+	    NewData=Data,
+             %io:format("{exit_status,0,1}: NewResult,NewData,Closed ~p~n",[{NewResult,NewData,Closed,?MODULE,?FUNCTION_NAME,?LINE}]),
+	    ok;
 	{ssh_cm,ConRef,{closed,0}} ->
-	    NextState=exit,
-	    io:format("Result,NextState ~p~n",[{Result,NextState,?MODULE,?FUNCTION_NAME,?LINE}]),
-	    NewResult=Result;
+	    NewClosed=true,
+	    NewResult=Result,
+	    NewData=lists:reverse(lists:append(Data)),
+	      %io:format("{closed,0}: NewResult,NewData,Closed ~p~n",[{NewResult,NewData,Closed,?MODULE,?FUNCTION_NAME,?LINE}]),
+	    ok;
 	Unmatched->
-	    NextState=exit,
-	    io:format("Unmatched,Result,NextState ~p~n",[{Unmatched,Result,NextState,?MODULE,?FUNCTION_NAME,?LINE}]),
-	    NewResult={error,["Unmatched",Unmatched,?MODULE,?LINE]}
+	    NewClosed=true,
+	    NewResult=error,
+	    NewData=[{"Unmatched",Unmatched,?MODULE,?LINE}|Data],
+	     %io:format("OK: NewResult,NewData,Closed ~p~n",[{NewResult,NewData,Closed,?MODULE,?FUNCTION_NAME,?LINE}]),
+	    ok
     after TimeOut->
-	    NextState=exit,
-	    NewResult={error,["timeout",?MODULE,?LINE]}
+	    NewClosed=true,
+	    NewResult=error,
+	    NewData=[{"Timeout ",?MODULE,?LINE}|Data]
     end,
-    rec(ConRef,ChanId,NewResult,NextState,TimeOut).
+    rec(ConRef,ChanId,NewResult,NewData,NewClosed,TimeOut).

@@ -44,13 +44,15 @@ test0()->
     io:format("Start ~p~n",[{?MODULE,?FUNCTION_NAME,?LINE}]),
     {Ip,Port,Uid,Pwd}=?C200,
     TimeOut=5000,
+    {ok,[]}=ssh_server:send_msg(Ip,Port,Uid,Pwd,"rm -rf glurk",TimeOut),
     Pwd1=ssh_server:send_msg(Ip,Port,Uid,Pwd,"pwd",TimeOut),
     io:format("Pwd1 ~p~n",[{Pwd1,?MODULE,?FUNCTION_NAME,?LINE}]),
-    Err1=ssh_server:send_msg(Ip,Port,Uid,Pwd,"rm -r glurk",TimeOut),
-    io:format("Err1 ~p~n",[{Err1,?MODULE,?FUNCTION_NAME,?LINE}]),
-    []=ssh_server:send_msg(Ip,Port,Uid,Pwd,"mkdir  glurk",TimeOut),
-    []=ssh_server:send_msg(Ip,Port,Uid,Pwd,"rm -r glurk",TimeOut),
-
+    {ok,[]}=ssh_server:send_msg(Ip,Port,Uid,Pwd,"mkdir  glurk",TimeOut),
+    {error,Reason1}=ssh_server:send_msg(Ip,Port,Uid,Pwd,"mkdir  glurk",TimeOut),
+    io:format("error,Reason1 ~p~n",[{Reason1,?MODULE,?FUNCTION_NAME,?LINE}]),
+    {ok,[]}=ssh_server:send_msg(Ip,Port,Uid,Pwd,"rm -r glurk",TimeOut),
+    {error,Reason2}=ssh_server:send_msg(Ip,Port,Uid,Pwd,"rm -r glurk",TimeOut),
+    io:format("error,Reason2 ~p~n",[{Reason2,?MODULE,?FUNCTION_NAME,?LINE}]),
     ok.
 
 %%--------------------------------------------------------------------
