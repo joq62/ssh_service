@@ -18,6 +18,7 @@
 
 -define(C200,{"192.168.1.200",22,"ubuntu","festum01"}).
 -define(C202,{"192.168.1.202",22,"ubuntu","festum01"}).
+
 %% --------------------------------------------------------------------
 %% Function: available_hosts()
 %% Description: Based on hosts.config file checks which hosts are avaible
@@ -26,6 +27,8 @@
 start()->
    
     ok=setup(),
+
+ 
     ok=test0(),
 
   % ok=test1(),
@@ -53,6 +56,9 @@ test0()->
     {ok,[]}=ssh_server:send_msg(Ip,Port,Uid,Pwd,"rm -r glurk",TimeOut),
     {error,Reason2}=ssh_server:send_msg(Ip,Port,Uid,Pwd,"rm -r glurk",TimeOut),
     io:format("error,Reason2 ~p~n",[{Reason2,?MODULE,?FUNCTION_NAME,?LINE}]),
+    Pwd2=ssh_server:send_msg("172.26.158.249",22,"joq62","festum01","pwd",TimeOut),
+    io:format("Pwd2 ~p~n",[{Pwd2,?MODULE,?FUNCTION_NAME,?LINE}]),
+    
     ok.
 
 %%--------------------------------------------------------------------
