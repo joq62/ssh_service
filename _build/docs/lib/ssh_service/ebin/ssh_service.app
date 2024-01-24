@@ -1,0 +1,10 @@
+{application,ssh_service,
+             [{description,"An OTP application"},
+              {vsn,"0.1.0"},
+              {registered,[]},
+              {mod,{ssh_service_app,[]}},
+              {applications,[kernel,stdlib]},
+              {env,[]},
+              {modules,[lib_ssh,ssh_service,ssh_service_app,ssh_service_sup]},
+              {licenses,["Apache-2.0"]},
+              {links,[]}]}.

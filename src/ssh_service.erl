@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 18 Apr 2023 by c50 <joq62@c50>
 %%%-------------------------------------------------------------------
--module(ssh_server).
+-module(ssh_service).
 
 -behaviour(gen_server).
 %%--------------------------------------------------------------------
@@ -45,7 +45,6 @@
 %%%===================================================================
 %%--------------------------------------------------------------------
 %% @doc
-%% @spec
 %% @end
 %%--------------------------------------------------------------------
 send_msg(HostSpec,Msg,TimeOut)->
@@ -57,7 +56,6 @@ send_msg(Ip,Port,User,Password,Msg,TimeOut)->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% @spec
 %% @end
 %%--------------------------------------------------------------------
 ping()-> 
@@ -98,8 +96,8 @@ init([]) ->
     {ok, #state{}}.
 
 %%--------------------------------------------------------------------
-%% @doc2
-%% @spec
+%% @doc
+%% 
 %% @end
 %%--------------------------------------------------------------------
 handle_call({send_msg,HostSpec,Msg,TimeOut}, _From, State) ->
@@ -111,40 +109,16 @@ handle_call({send_msg,HostSpec,Msg,TimeOut}, _From, State) ->
 		  {ok,Port}=sd:call(?DBETCD,db_host_spec,read,[ssh_port,HostSpec],5000),
 		  {ok,Uid}=sd:call(?DBETCD,db_host_spec,read,[uid,HostSpec],5000),
 		  {ok,Pwd}=sd:call(?DBETCD,db_host_spec,read,[passwd,HostSpec],5000),
-		  case lib_ssh:send(Ip,Port,Uid,Pwd,Msg,TimeOut) of
-		      {data, ChanId, Type, Result} when Type == 0 ->
-			  X1=binary_to_list(Result),
-			  Parsed=string:tokens(X1,"\n"),
-			  {ok,Parsed};
-		      {data, ChanId, Type, Result} when Type == 1 ->
-			  X1=binary_to_list(Result),
-			  Parsed=string:tokens(X1,"\n"),
-			  {error,Parsed};
-		      Result->
-			  {error,Result}
-		  end
+		  lib_ssh:send(Ip,Port,Uid,Pwd,Msg,TimeOut)
 	  end,
     {reply, Reply, State};
 
 handle_call({send_msg,Ip,Port,Uid,Pwd,Msg,TimeOut}, _From, State) ->
-    Reply=case lib_ssh:send(Ip,Port,Uid,Pwd,Msg,TimeOut) of
-	      {data, ChanId, Type, Result} when Type == 0 ->
-		  X1=binary_to_list(Result),
-		  Parsed=string:tokens(X1,"\n"),
-		  {ok,Parsed};
-	      {data, ChanId, Type, Result} when Type == 1 ->
-		  X1=binary_to_list(Result),
-		  Parsed=string:tokens(X1,"\n"),
-		  {error,Parsed};
-	      Result->
-		  {error,Result}
-	  end,
-	      
+    Reply=lib_ssh:send(Ip,Port,Uid,Pwd,Msg,TimeOut),	      
     {reply, Reply, State};
 
 %%--------------------------------------------------------------------
 %% @doc
-%% @spec
 %% @end
 %%--------------------------------------------------------------------
 handle_call({ping}, _From, State) ->
